@@ -1,0 +1,59 @@
+name: release
+
+# 正式包只在云端出:推 v* tag 时构建 ia32 zip 并挂到 GitHub Release。
+# 本地 `npm run dist` 固定 --publish never,产物只留在 release/ 供自测。
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows-ia32:
+    name: Windows ia32 zip
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: 安装依赖
+        run: npm ci
+
+      - name: 单元测试
+        run: npm test
+
+      # afterPack 会用缓存里的 rcedit 写 exe 图标;云端缓存为空时尽力补一份,
+      # 拉取失败不阻断构建(exe 退回 Electron 默认图标,窗口/任务栏图标不受影响)。
+      - name: 准备 rcedit(可失败)
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $dir = Join-Path $env:LOCALAPPDATA "electron-builder\Cache\rcedit"
+          New-Item -ItemType Directory -Force -Path $dir | Out-Null
+          Invoke-WebRequest -Uri "https://github.com/electron/rcedit/releases/download/v1.1.1/rcedit-x64.exe" -OutFile (Join-Path $dir "rcedit-x64.exe")
+
+      - name: 打包 ia32 zip
+        run: npm run dist
+
+      - name: 上传构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: offline-office-tools-ia32
+          path: release/*.zip
+          if-no-files-found: error
+
+      - name: 发布到 GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/*.zip
+          generate_release_notes: true
+          fail_on_unmatched_files: true

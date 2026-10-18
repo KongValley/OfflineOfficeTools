@@ -42,7 +42,7 @@ npm install          # 首次安装(会下载 Electron 22.3.27)
 npm run dev          # 构建并启动桌面应用
 npm run build        # 只构建渲染层到 dist/renderer
 npm test             # 纯逻辑单测 + PDF 整理产物回读(金额/日期/页码范围/换行/压缩白名单/路径/编码)
-npm run dist         # 打包出 release/ 下的 ia32 zip
+npm run dist         # 本地打包出 release/ 下的 ia32 zip(固定 --publish never)
 ```
 
 `tests/pdfops.test.mjs` 用 Vite 的 SSR 加载器载入 `src/renderer/src/utils/pdfOps.js`,写出的 PDF 再用 pdf.js 回读校对(页码文本、中文子集字体、水印、CropBox、书签层级),不需要真机窗口。
@@ -52,6 +52,17 @@ npm run dist         # 打包出 release/ 下的 ia32 zip
 ```bash
 ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ npm run dist
 ```
+
+## 发布流程
+
+正式包只由 GitHub Actions 产出,本地 `release/` 只是自测产物,不进仓库、不上传。
+
+1. 改 `package.json` 的 `version`(如 `0.2.0`)并提交;
+2. 打同名 tag 并推送:`git tag v0.2.0 && git push origin v0.2.0`;
+3. `.github/workflows/release.yml` 在 windows-latest 上跑 `npm ci` → `npm test` → `npm run dist`,把 `离线办公工具-x.y.z-ia32-win.zip` 挂到该 tag 的 GitHub Release;
+4. 手动触发(Actions → release → Run workflow)只跑构建并留 workflow artifact,不发 Release。
+
+`npm run dist` 固定带 `--publish never`,避免在本地误发;`npm run dist:publish` 仅供 CI/需要直发的场景。云端构建机的 rcedit 缓存是空的,workflow 会尽力下载一份写 exe 图标,失败则 exe 用 Electron 默认图标(窗口/任务栏图标不受影响);本机缓存里有 rcedit 时本地包图标正常。
 
 ## 发布前人工核对
 
