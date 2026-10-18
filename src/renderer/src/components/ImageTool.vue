@@ -214,10 +214,10 @@ const clearAll = () => {
         </select>
       </label>
       <label>缩放 %
-        <input v-model="scalePercent" type="number" min="1" max="400" style="width: 80px" placeholder="留空不缩放" />
+        <input v-model="scalePercent" type="number" min="1" max="400" style="width: 96px" placeholder="留空不缩放" />
       </label>
       <label>最大边长 px
-        <input v-model="maxEdge" type="number" min="16" max="20000" style="width: 85px" placeholder="留空不限" />
+        <input v-model="maxEdge" type="number" min="16" max="20000" style="width: 104px" placeholder="留空不限" />
       </label>
       <label>JPEG 质量
         <input v-model="quality" type="number" min="1" max="100" style="width: 70px" />
