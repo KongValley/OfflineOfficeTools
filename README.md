@@ -100,3 +100,9 @@ ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ npm run dist
 - 「PDF 整理」的加页码与文字水印需要系统中文字体 `simhei.ttf`/`simkai.ttf`/`simfang.ttf`(中文版 Win7 自带黑体;只有英文系统的精简镜像可能没有),三个都找不到时这两个操作会明确报错,其他功能不受影响。
 - 图片工具不支持输出 GIF(jimp 只读 GIF 首帧);PDF 加密文件无法处理,会提示"已加密或已损坏"。
 - 每次处理会整份读入内存,大文件(数百 MB PDF)可能占用较多内存。
+
+## 许可证
+
+本项目代码以 [MIT](LICENSE)(© 2026 KongValley)发布:可自由使用、修改、商用与再分发,只需保留版权与许可声明。
+
+第三方依赖各自保留原许可(均为宽松型,与 MIT 兼容):`pdf-lib` / `jimp` / `iconv-lite` / `markdown-it` / `vue` / `electron` 为 MIT,`pdfjs-dist` 为 Apache-2.0。打包产物里同时带有 `LICENSE.electron.txt` 与 `LICENSES.chromium.html`,对应 Electron 与 Chromium 的许可证文本。

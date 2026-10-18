@@ -4,6 +4,7 @@
   "private": true,
   "description": "离线办公工具合集(Windows 7 32位,解压即用)",
   "author": "offline-office-tools",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/KongValley/OfflineOfficeTools.git"

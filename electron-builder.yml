@@ -8,9 +8,13 @@ files:
   - src/assets/**
   - dist/renderer/**
   - package.json
+  - LICENSE
   # canvas 是 pdfjs-dist 的可选依赖(Node 里 polyfill DOMMatrix 用),应用运行时用不到;
   # 构建机装了它时 electron-builder 会把它当生产依赖打进 app.asar.unpacked(约 33MB 无用二进制)。
   - "!**/node_modules/canvas/**"
+# 再放一份到 exe 同级,解压后直接能看到许可文本(asar 里也有一份)
+extraFiles:
+  - LICENSE
 # 依赖全是纯 JS,不需要按 ia32 重建原生模块(pdfjs-dist 的可选 canvas 另有 files 排除)
 npmRebuild: false
 # exe 图标不能走 electron-builder 默认的 rcedit 流程:app-builder 的 rcedit 实现仍会下载
