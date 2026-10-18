@@ -8,6 +8,9 @@ files:
   - src/assets/**
   - dist/renderer/**
   - package.json
+  # jimp 的 canvas 是可选的 Node 原生模块,应用里用不到;本机没装、CI 会装,
+  # 不排除的话云端包会多出 app.asar.unpacked/node_modules/canvas(约 33MB 无用二进制)。
+  - "!**/node_modules/canvas/**"
 # 依赖全是纯 JS,不需要按 ia32 重建原生模块(否则会去编译 jimp 的可选依赖 canvas)
 npmRebuild: false
 # exe 图标不能走 electron-builder 默认的 rcedit 流程:app-builder 的 rcedit 实现仍会下载

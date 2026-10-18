@@ -45,7 +45,7 @@ npm test             # 纯逻辑单测 + PDF 整理产物回读(金额/日期/�
 npm run dist         # 本地打包出 release/ 下的 ia32 zip(固定 --publish never)
 ```
 
-`tests/pdfops.test.mjs` 用 Vite 的 SSR 加载器载入 `src/renderer/src/utils/pdfOps.js`,写出的 PDF 再用 pdf.js 回读校对(页码文本、中文子集字体、水印、CropBox、书签层级),不需要真机窗口。
+`tests/pdfops.test.mjs` 用 Vite 的 SSR 加载器载入 `src/renderer/src/utils/pdfOps.js`,写出的 PDF 再用 pdf.js 回读校对(页码文本、中文子集字体、水印、CropBox、书签层级),不需要真机窗口。其中中文子集用例依赖系统 `simhei.ttf`,非中文 Windows(GitHub 的英文 runner 就没有)会自动 skip 并在日志里标 `SKIP`,这条以本机/中文 Windows 的结果为准。
 
 打包无需 32 位宿主,x64 开发机直接交叉产出。若 Electron 二进制下载慢,可先设置镜像:
 
@@ -84,7 +84,7 @@ ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ npm run dist
 - `electron@22.3.27` 是最后一个支持 Win7/8/8.1 的版本(Chromium 108 / Node 16),**不要升级**。
 - `pdfjs-dist@3.11.174`:4.x 要求更高版本浏览器特性,Chromium 108 上只能用 legacy 构建。
 - `vite@4` + `build.target: 'chrome108'`:产物语法必须匹配 Win7 上的 Chromium 108。
-- 依赖全部为纯 JS,无原生模块,`electron-builder.yml` 中已关闭 `npmRebuild`。
+- 依赖全部为纯 JS,无原生模块,`electron-builder.yml` 中已关闭 `npmRebuild`;云端 `npm ci --omit=optional` 并排除 jimp 的可选 `canvas`,包内不会混入任何原生二进制。
 
 ## 图标
 
