@@ -59,7 +59,7 @@ ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ npm run dist
 
 1. 改 `package.json` 的 `version`(如 `0.2.0`)并提交;
 2. 打同名 tag 并推送:`git tag v0.2.0 && git push origin v0.2.0`;
-3. `.github/workflows/release.yml` 在 windows-latest 上跑 `npm ci` → `npm test` → `npm run dist`,把 `离线办公工具-x.y.z-ia32-win.zip` 挂到该 tag 的 GitHub Release;
+3. `.github/workflows/release.yml` 在 windows-latest 上跑 `npm ci` → `npm test` → `npm run dist`,校验条目数/无原生二进制/`e_machine=0x014c`/`SHA-256`,再把 `离线办公工具-x.y.z-ia32-win.zip` 以 ASCII 名 `OfflineOfficeTools-x.y.z-ia32-win.zip` 挂到该 tag 的 GitHub Release(GitHub 资产名会剔除非 ASCII 字符,本地构建产物仍是中文名);
 4. 手动触发(Actions → release → Run workflow)只跑构建并留 workflow artifact,不发 Release。
 
 `npm run dist` 固定带 `--publish never`,本地不会误发;正式发布只走 tag 触发的 workflow,`npm ci` 前会先校验 tag 与 `package.json` 版本一致(不一致直接失败,避免 Release 里挂着旧版本号的文件名)。云端构建机的 rcedit 缓存是空的,workflow 会尽力下载一份写 exe 图标,失败则 exe 用 Electron 默认图标(窗口/任务栏图标不受影响);本机缓存里有 rcedit 时本地包图标正常。

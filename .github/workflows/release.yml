@@ -92,8 +92,15 @@ jobs:
 
       - name: 发布到 GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: release/*.zip
-          generate_release_notes: true
-          fail_on_unmatched_files: true
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # GitHub 的资产上传会剔除非 ASCII 字符(实测「离线办公工具-0.1.0-…zip」变成「-0.1.0-…zip」),
+          # 所以发布时用 ASCII 文件名拷一份;本地 release/ 里仍是中文名。
+          ascii="release/OfflineOfficeTools-${GITHUB_REF_NAME#v}-ia32-win.zip"
+          cp "$(ls release/*.zip | head -1)" "$ascii"
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || \
+            gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes
+          gh release upload "$GITHUB_REF_NAME" "$ascii" --clobber
+          gh release view "$GITHUB_REF_NAME" --json assets -q '.assets[] | "asset=\(.name) size=\(.size)"'
