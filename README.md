@@ -84,7 +84,7 @@ ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ npm run dist
 - `electron@22.3.27` 是最后一个支持 Win7/8/8.1 的版本(Chromium 108 / Node 16),**不要升级**。
 - `pdfjs-dist@3.11.174`:4.x 要求更高版本浏览器特性,Chromium 108 上只能用 legacy 构建。
 - `vite@4` + `build.target: 'chrome108'`:产物语法必须匹配 Win7 上的 Chromium 108。
-- 依赖全部为纯 JS,无原生模块,`electron-builder.yml` 中已关闭 `npmRebuild`;云端 `npm ci --omit=optional` 并排除 jimp 的可选 `canvas`,包内不会混入任何原生二进制。
+- 依赖全部为纯 JS,无原生模块,`electron-builder.yml` 中已关闭 `npmRebuild`,并排除 pdfjs-dist 的可选原生依赖 `canvas`,包内不会混入任何原生二进制。
 
 ## 图标
 

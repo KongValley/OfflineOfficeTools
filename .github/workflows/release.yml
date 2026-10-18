@@ -36,8 +36,10 @@ jobs:
           node-version: 20
           cache: npm
 
+      # 标准安装:canvas 会作为 pdfjs-dist 的可选依赖被装上,由 electron-builder 的
+      # files 排除规则挡在包外;不加 --omit=optional,以免动到 esbuild 的平台包。
       - name: 安装依赖
-        run: npm ci --omit=optional
+        run: npm ci
 
       - name: 单元测试
         run: npm test
