@@ -57,8 +57,9 @@ jobs:
       - name: 打包 ia32 zip
         run: npm run dist
 
-      # 依赖里唯一可能混入的原生模块是 pdfjs-dist 的可选 canvas,断言它没被打进包
-      - name: 检查包里没有原生二进制
+      # 依赖里唯一可能混入的原生模块是 pdfjs-dist 的可选 canvas,断言它没被打进包;
+      # 同时自证 exe 是 PE32/i386(ia32 是这产品的唯一前提)并打印 zip 校验和。
+      - name: 检查包内容与架构
         shell: pwsh
         run: |
           Add-Type -A System.IO.Compression.FileSystem
@@ -71,6 +72,16 @@ jobs:
             $bad.FullName
             throw "包内出现原生二进制,检查 electron-builder.yml 的 files 排除"
           }
+
+          $exe = Get-ChildItem "release\win-ia32-unpacked\*.exe" | Select-Object -First 1
+          $bytes = [IO.File]::ReadAllBytes($exe.FullName)
+          $lfanew = [BitConverter]::ToInt32($bytes, 0x3c)
+          $machine = [BitConverter]::ToUInt16($bytes, $lfanew + 4)
+          "exe=$($exe.Name) e_machine=0x{0:x4}" -f $machine
+          if ($machine -ne 0x014c) {
+            throw "exe 不是 PE32/i386:期望 0x014c,实际 0x$($machine.ToString('x4'))"
+          }
+          "zip_sha256=" + (Get-FileHash $zip.FullName -Algorithm SHA256).Hash
 
       - name: 上传构建产物
         uses: actions/upload-artifact@v4
