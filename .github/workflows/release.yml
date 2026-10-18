@@ -57,6 +57,21 @@ jobs:
       - name: 打包 ia32 zip
         run: npm run dist
 
+      # 依赖里唯一可能混入的原生模块是 pdfjs-dist 的可选 canvas,断言它没被打进包
+      - name: 检查包里没有原生二进制
+        shell: pwsh
+        run: |
+          Add-Type -A System.IO.Compression.FileSystem
+          $zip = Get-ChildItem release/*.zip | Select-Object -First 1
+          $z = [IO.Compression.ZipFile]::OpenRead($zip.FullName)
+          $bad = @($z.Entries | Where-Object { $_.FullName -like "*.node" -or $_.FullName -like "*node_modules/canvas/*" })
+          "zip=$($zip.Name) entries=$($z.Entries.Count) natives=$($bad.Count)"
+          $z.Dispose()
+          if ($bad.Count -gt 0) {
+            $bad.FullName
+            throw "包内出现原生二进制,检查 electron-builder.yml 的 files 排除"
+          }
+
       - name: 上传构建产物
         uses: actions/upload-artifact@v4
         with:
