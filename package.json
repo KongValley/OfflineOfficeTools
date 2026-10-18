@@ -1,0 +1,33 @@
+{
+  "name": "offline-office-tools",
+  "version": "0.1.0",
+  "private": true,
+  "description": "离线办公工具合集(Windows 7 32位,解压即用)",
+  "author": "offline-office-tools",
+  "main": "src/main/index.js",
+  "scripts": {
+    "dev": "npm run build && electron .",
+    "build": "vite build",
+    "test": "node --test \"tests/*.test.mjs\"",
+    "dist": "npm run build && electron-builder"
+  },
+  "dependencies": {
+    "@pdf-lib/fontkit": "1.1.1",
+    "iconv-lite": "^0.6.3",
+    "jimp": "0.22.12",
+    "markdown-it": "14.1.0",
+    "pdf-lib": "1.17.1",
+    "pdfjs-dist": "3.11.174",
+    "vue": "3.3.13"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "4.6.2",
+    "electron": "22.3.27",
+    "electron-builder": "24.13.3",
+    "vite": "4.5.3"
+  },
+  "allowScripts": {
+    "electron@22.3.27": true,
+    "esbuild@0.18.20": true
+  }
+}

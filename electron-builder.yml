@@ -1,0 +1,23 @@
+appId: com.offline.office-tools
+productName: 离线办公工具
+directories:
+  output: release
+files:
+  - src/main/**
+  - src/preload/**
+  - src/assets/**
+  - dist/renderer/**
+  - package.json
+# 依赖全是纯 JS,不需要按 ia32 重建原生模块(否则会去编译 jimp 的可选依赖 canvas)
+npmRebuild: false
+# exe 图标不能走 electron-builder 默认的 rcedit 流程:app-builder 的 rcedit 实现仍会下载
+# winCodeSign-2.6.0.7z,其中 macOS 符号链接在无特权环境解压失败(exit status 2),构建直接失败。
+# 改用 afterPack 钩子调用本机缓存里已解出的 rcedit,找不到就跳过、不影响构建。
+afterPack: ./scripts/after-pack.cjs
+win:
+  signAndEditExecutable: false
+  target:
+    - target: zip
+      arch:
+        - ia32
+asar: true
