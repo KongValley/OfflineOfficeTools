@@ -62,7 +62,7 @@ ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ npm run dist
 3. `.github/workflows/release.yml` 在 windows-latest 上跑 `npm ci` → `npm test` → `npm run dist`,把 `离线办公工具-x.y.z-ia32-win.zip` 挂到该 tag 的 GitHub Release;
 4. 手动触发(Actions → release → Run workflow)只跑构建并留 workflow artifact,不发 Release。
 
-`npm run dist` 固定带 `--publish never`,避免在本地误发;`npm run dist:publish` 仅供 CI/需要直发的场景。云端构建机的 rcedit 缓存是空的,workflow 会尽力下载一份写 exe 图标,失败则 exe 用 Electron 默认图标(窗口/任务栏图标不受影响);本机缓存里有 rcedit 时本地包图标正常。
+`npm run dist` 固定带 `--publish never`,本地不会误发;正式发布只走 tag 触发的 workflow,`npm ci` 前会先校验 tag 与 `package.json` 版本一致(不一致直接失败,避免 Release 里挂着旧版本号的文件名)。云端构建机的 rcedit 缓存是空的,workflow 会尽力下载一份写 exe 图标,失败则 exe 用 Electron 默认图标(窗口/任务栏图标不受影响);本机缓存里有 rcedit 时本地包图标正常。
 
 ## 发布前人工核对
 
