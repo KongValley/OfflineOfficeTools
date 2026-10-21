@@ -7,8 +7,11 @@
 - `npm test`:**79/79 通过**。
 - `npm run build`:**通过**。
 - `npm run dist`:**通过**,产物 `release/离线办公工具-0.3.0-ia32-win.zip`(111,520,587 B,SHA-256 `b1bbe0bc5b6073246b2757cd2742323f0f5604856e30ae8da615afcb5c8d73f8`)。
-- `scripts/acceptance.mjs` 的真实窗口验收:源码态 **37/37**、解包 exe **37/37**,均包含 3 个压力场景。
-- 尚未提交 git commit、未打 tag、未上传 Release。
+- `scripts/acceptance.mjs` 的真实窗口验收:源码态 **37/37**、本地解包 exe **37/37**、云端 Release 资产解包后 **37/37**,均包含 3 个压力场景。
+- 已发布 `v0.3.0`(commit `32a6a14`,tag `v0.3.0`):https://github.com/KongValley/OfflineOfficeTools/releases/tag/v0.3.0
+  - 云端资产 `OfflineOfficeTools-0.3.0-ia32-win.zip`,111,520,550 B,SHA-256 `DDED941EE51753D621873437149329393CA37A02F28DCA01F5C82946163DB968`。
+  - CI 运行 `39522558632`:zip 条目 75、原生 0、`e_machine=0x014c`;asar 条目 3816,含 `imageOps.js`/`fileOps.js`/`jpeg-js`。
+  - 本地包与云端包因 ZIP 时间戳/图标写入路径不同,SHA 不同,属正常。
 
 ## P0 功能验收(自动化覆盖)
 
@@ -67,7 +70,7 @@
 - [ ] 真实 Win7 32 位机器:启动、拖放、对话框、另存为、新按钮全部人工确认。
 - [x] 包内无 `canvas` / `*.node`(asar 条目 3816,原生 0)。
 - [x] `src/main/imageOps.js`、`fileOps.js`、`dist/renderer/index.html` 均在 asar 内;`e_machine=0x014c`。
-- [ ] 如要发布:提交、打 `v0.3.0` tag、由云端 CI 出包(本轮未执行,需单独授权)。
+- [x] 已发布:commit `32a6a14`、tag `v0.3.0`;云端 CI 出包并挂到 Release,资产 SHA-256 `DDED941E…DB968`,下载解包后自动化验收 37/37。
 
 ## P2 边界与加固
 
