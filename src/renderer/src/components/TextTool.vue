@@ -1,6 +1,17 @@
 <script setup>
-import { ref } from 'vue'
-import { dedupeLines, sortLineList, trimLineList } from '../utils/textLines.js'
+import { computed, onUnmounted, ref, watch } from 'vue'
+import {
+  addLineNumbers,
+  changeCase,
+  dedupeLines,
+  prefixSuffixLines,
+  sortLineList,
+  textStats,
+  toFullWidth,
+  toHalfWidth,
+  trimLineList,
+  trimLineSides
+} from '../utils/textLines.js'
 
 const TEXT_FILTERS = [{ name: '文本文件', extensions: ['txt', 'md', 'log', 'csv', 'json', 'ini', 'xml'] }]
 const TEXT_EXT = /\.(txt|md|log|csv|json|ini|xml)$/i
@@ -36,6 +47,23 @@ const pattern = ref('')
 const replacement = ref('')
 const busy = ref(false)
 const progress = ref('')
+
+// 行处理与实时统计
+const linePrefix = ref('')
+const lineSuffix = ref('')
+const lineNoStart = ref(1)
+const lineNoSep = ref('. ')
+const caseMode = ref('upper')
+const stats = ref(textStats(''))
+let statsTimer = null
+const currentText = computed(() => files.value[current.value]?.text || '')
+watch(currentText, () => {
+  clearTimeout(statsTimer)
+  statsTimer = setTimeout(() => {
+    stats.value = textStats(currentText.value)
+  }, 250)
+}, { immediate: true })
+onUnmounted(() => clearTimeout(statsTimer))
 
 const splitName = (p) => {
   const name = p.split(/[\\/]/).pop()
@@ -121,6 +149,34 @@ function regexReplace(text) {
   return text.replace(re, replacement.value)
 }
 
+// 行处理只改当前文件的预览,点上面的保存按钮才写盘
+function applyToCurrent(fn, label) {
+  if (busy.value) return
+  const file = files.value[current.value]
+  if (!file) {
+    alert('请先选择文本文件。')
+    return
+  }
+  try {
+    file.text = fn(file.text)
+  } catch (e) {
+    alert(`${label}失败:${e.message}`)
+  }
+}
+
+const applyAffixes = () => applyToCurrent(
+  (text) => prefixSuffixLines(text, linePrefix.value, lineSuffix.value),
+  '加前后缀'
+)
+const applyLineNumbers = () => applyToCurrent(
+  (text) => addLineNumbers(text, lineNoStart.value, lineNoSep.value),
+  '加行号'
+)
+const applyCase = () => applyToCurrent((text) => changeCase(text, caseMode.value), '转换大小写')
+const applyFullWidth = () => applyToCurrent(toFullWidth, '转全角')
+const applyHalfWidth = () => applyToCurrent(toHalfWidth, '转半角')
+const applyTrimSides = () => applyToCurrent(trimLineSides, '去行首尾空白')
+
 async function saveAll(transform, suffix) {
   if (busy.value) return
   if (!files.value.length) {
@@ -200,6 +256,28 @@ const applyRegex = () => saveAll(regexReplace, '_替换')
       <button class="act" :disabled="busy" @click="applyRegex">正则替换并保存</button>
     </div>
 
+    <div class="row">
+      <input v-model="linePrefix" type="text" style="width: 110px" placeholder="行前缀" />
+      <input v-model="lineSuffix" type="text" style="width: 110px" placeholder="行后缀" />
+      <button class="act" :disabled="busy || !files.length" @click="applyAffixes">加前后缀</button>
+      <label>行号从
+        <input v-model="lineNoStart" type="number" min="0" style="width: 70px" />
+      </label>
+      <input v-model="lineNoSep" type="text" style="width: 60px" placeholder=". " />
+      <button class="act" :disabled="busy || !files.length" @click="applyLineNumbers">加行号</button>
+      <label>大小写
+        <select v-model="caseMode">
+          <option value="upper">全部大写</option>
+          <option value="lower">全部小写</option>
+          <option value="title">首字母大写</option>
+        </select>
+      </label>
+      <button class="act" :disabled="busy || !files.length" @click="applyCase">转换</button>
+      <button class="act" :disabled="busy || !files.length" @click="applyFullWidth">转全角</button>
+      <button class="act" :disabled="busy || !files.length" @click="applyHalfWidth">转半角</button>
+      <button class="act" :disabled="busy || !files.length" @click="applyTrimSides">去行首尾空白</button>
+    </div>
+
     <ul v-if="files.length" class="filelist">
       <li
         v-for="(f, i) in files"
@@ -228,6 +306,12 @@ const applyRegex = () => saveAll(regexReplace, '_替换')
       style="width: 100%"
       spellcheck="false"
     ></textarea>
-    <div v-if="files.length" class="hint">预览可直接编辑,编辑后点上面任一处理按钮保存;输出自动加 _转换/_去重/_排序/_去空行/_替换 后缀</div>
+    <div v-if="files.length" class="row" style="margin: 8px 0 0">
+      <span class="hint">
+        共 {{ stats.chars }} 字(不含空白 {{ stats.charsNoSpace }}),中文 {{ stats.cjk }} 字,
+        英文单词 {{ stats.words }},{{ stats.nonEmptyLines }} 行,{{ stats.paragraphs }} 段
+      </span>
+    </div>
+    <div v-if="files.length" class="hint">预览可直接编辑;行处理只改当前文件的预览,点上面任一保存按钮才写盘;输出自动加 _转换/_去重/_排序/_去空行/_替换 后缀</div>
   </div>
 </template>

@@ -1,7 +1,8 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { amountToChinese } from '../utils/finance.js'
 import { addDays, addWorkdays, daysBetween, formatDate, parseDate, wholeMonthsBetween, workdaysBetween } from '../utils/dates.js'
+import { CATEGORIES, convert, formatNumber } from '../utils/units.js'
 
 const WEEKDAY = ['日', '一', '二', '三', '四', '五', '六']
 
@@ -74,6 +75,63 @@ function calcAddDays() {
   }
   const r = addDays(base, n)
   addOut.value = `${formatDate(base)} ${n >= 0 ? '+' : '-'} ${Math.abs(n)} 天 = ${formatDate(r)}(星期${WEEKDAY[r.getDay()]})`
+}
+
+// --- 单位换算 ---
+const unitCategory = ref('length')
+const unitValue = ref(1)
+const unitFrom = ref('m')
+const unitTo = ref('km')
+const unitOptions = computed(() => CATEGORIES.find((c) => c.id === unitCategory.value)?.units || [])
+const unitResult = computed(() => {
+  const result = convert(unitValue.value, unitCategory.value, unitFrom.value, unitTo.value)
+  return result == null ? '—' : formatNumber(result)
+})
+watch(unitCategory, () => {
+  const units = unitOptions.value
+  unitFrom.value = units[0]?.id || ''
+  unitTo.value = units[1]?.id || units[0]?.id || ''
+})
+function swapUnits() {
+  const from = unitFrom.value
+  unitFrom.value = unitTo.value
+  unitTo.value = from
+}
+
+// --- 文件校验 ---
+const hashName = ref('')
+const hashBusy = ref(false)
+const hashResult = ref(null)
+const hashError = ref('')
+
+async function computeHashes(filePath) {
+  if (hashBusy.value) return
+  hashBusy.value = true
+  hashError.value = ''
+  hashResult.value = null
+  hashName.value = String(filePath).split(/[\\/]/).pop()
+  try {
+    hashResult.value = await window.api.hashFile(filePath)
+  } catch (e) {
+    hashError.value = e.message
+  } finally {
+    hashBusy.value = false
+  }
+}
+
+async function pickHashFile() {
+  const paths = await window.api.openFiles({ multiple: false })
+  if (paths.length) computeHashes(paths[0])
+}
+
+function onHashDrop(e) {
+  if (hashBusy.value) return
+  const file = e.dataTransfer.files[0]
+  if (!file || !file.path) {
+    alert('请拖入一个文件。')
+    return
+  }
+  computeHashes(file.path)
 }
 
 // --- 待办 ---
@@ -170,6 +228,46 @@ function clearDone() {
       </div>
       <div class="calc-out">{{ addOut }}</div>
       <div class="hint">结果同时给出星期几</div>
+    </div>
+
+    <div class="card wide">
+      <div class="card-title">单位换算</div>
+      <div class="row">
+        <label>类别
+          <select v-model="unitCategory">
+            <option v-for="c in CATEGORIES" :key="c.id" :value="c.id">{{ c.label }}</option>
+          </select>
+        </label>
+        <input v-model.number="unitValue" type="number" step="any" style="width: 130px" />
+        <select v-model="unitFrom">
+          <option v-for="u in unitOptions" :key="u.id" :value="u.id">{{ u.label }}</option>
+        </select>
+        <button class="act" @click="swapUnits">⇄</button>
+        <select v-model="unitTo">
+          <option v-for="u in unitOptions" :key="u.id" :value="u.id">{{ u.label }}</option>
+        </select>
+        <span class="calc-out" style="margin: 0">{{ unitResult }}</span>
+      </div>
+      <div class="hint">存储按 1024 进位;温度支持摄氏/华氏/开尔文</div>
+    </div>
+
+    <div class="card wide" @dragover.prevent @drop.prevent="onHashDrop">
+      <div class="card-title">文件校验(MD5 / SHA-1 / SHA-256)</div>
+      <div class="row">
+        <button class="act" :disabled="hashBusy" @click="pickHashFile">选择文件</button>
+        <span v-if="hashName" class="hint">
+          {{ hashName }}
+          <template v-if="hashResult"> — {{ Math.max(1, Math.round(hashResult.size / 1024)) }} KB</template>
+        </span>
+        <span v-if="hashBusy" class="hint">正在计算…</span>
+      </div>
+      <div v-if="hashError" class="hint warn">{{ hashError }}</div>
+      <div v-if="hashResult" class="hashval">
+        <div><b>MD5</b><code>{{ hashResult.md5 }}</code></div>
+        <div><b>SHA-1</b><code>{{ hashResult.sha1 }}</code></div>
+        <div><b>SHA-256</b><code>{{ hashResult.sha256 }}</code></div>
+      </div>
+      <div class="hint">流式计算,大文件不占内存;也可以把文件直接拖到这张卡片上</div>
     </div>
 
     <div class="card wide">

@@ -10,6 +10,7 @@ import {
   degrees,
   rgb
 } from 'pdf-lib'
+import { alignBox, normalizePageRotation, placeRotatedBox, rotatedBounds, visualToPagePoint } from './pdfLayout.js'
 
 const PAGE_NUMBER_COLORS = {
   gray: rgb(0.45, 0.45, 0.45),
@@ -34,6 +35,129 @@ export function clearMetadata(doc) {
   doc.setKeywords([])
   doc.setCreator('')
   doc.setProducer('')
+}
+
+export function readMetadata(doc) {
+  return {
+    title: doc.getTitle() || '',
+    author: doc.getAuthor() || '',
+    subject: doc.getSubject() || '',
+    keywords: doc.getKeywords() || ''
+  }
+}
+
+// 只改传入的字段;空字符串表示清空该字段。关键词支持中英文逗号/分号分隔
+export function setMetadata(doc, fields = {}) {
+  const clean = (value) => String(value ?? '').trim().slice(0, 512)
+  if ('title' in fields) doc.setTitle(clean(fields.title))
+  if ('author' in fields) doc.setAuthor(clean(fields.author))
+  if ('subject' in fields) doc.setSubject(clean(fields.subject))
+  if ('keywords' in fields) {
+    const list = Array.isArray(fields.keywords)
+      ? fields.keywords
+      : String(fields.keywords ?? '').split(/[,，;；\s]+/)
+    doc.setKeywords(list.map((k) => String(k).trim().slice(0, 128)).filter(Boolean))
+  }
+}
+
+// 在 at 处插入另一个文档的页面;at=0 最前,at=pageCount 追加到末尾
+export async function insertPdfPages(doc, srcDoc, at, indices) {
+  const pageCount = doc.getPageCount()
+  const pos = Math.trunc(Number(at))
+  if (!Number.isInteger(pos) || pos < 0 || pos > pageCount) {
+    throw new Error(`插入位置需在 0–${pageCount} 之间`)
+  }
+  const srcCount = srcDoc.getPageCount()
+  const list = Array.isArray(indices) && indices.length ? indices : srcDoc.getPageIndices()
+  if (!list.length) throw new Error('没有要插入的页面')
+  if (!list.every((i) => Number.isInteger(i) && i >= 0 && i < srcCount)) {
+    throw new Error(`插入页码需在 1–${srcCount} 之间`)
+  }
+  const copied = await doc.copyPages(srcDoc, list)
+  copied.forEach((page, i) => doc.insertPage(pos + i, page))
+  return copied.length
+}
+
+export function insertBlankPages(doc, at, count, size) {
+  const pageCount = doc.getPageCount()
+  const pos = Math.trunc(Number(at))
+  const n = Math.trunc(Number(count))
+  if (!Number.isInteger(pos) || pos < 0 || pos > pageCount) {
+    throw new Error(`插入位置需在 0–${pageCount} 之间`)
+  }
+  if (!Number.isInteger(n) || n < 1 || n > 1000) throw new Error('空白页数需在 1–1000 之间')
+  const dims = size == null ? [595.28, 841.89] : size
+  if (!Array.isArray(dims) || dims.length !== 2 || !(dims[0] > 0) || !(dims[1] > 0)) {
+    throw new Error('空白页尺寸无效')
+  }
+  for (let i = 0; i < n; i += 1) doc.insertPage(pos + i, [dims[0], dims[1]])
+  return n
+}
+
+const STAMP_POSITIONS = [
+  'top-left', 'top-center', 'top-right',
+  'middle-left', 'center', 'middle-right',
+  'bottom-left', 'bottom-center', 'bottom-right'
+]
+
+// 把已嵌入的图片盖到指定页;CropBox 原点不一定在 (0,0),绘制坐标要加上偏移
+export function stampImage(doc, image, opts = {}) {
+  if (!image || !(image.width > 0) || !(image.height > 0)) throw new Error('盖章图片无效')
+  const pages = Array.isArray(opts.pages) && opts.pages.length ? opts.pages : doc.getPageIndices()
+  if (!pages.every((i) => Number.isInteger(i) && i >= 0 && i < doc.getPageCount())) {
+    throw new Error('盖章页码无效')
+  }
+  const pos = STAMP_POSITIONS.includes(opts.pos) ? opts.pos : 'bottom-right'
+  const widthPct = opts.widthPercent == null ? 30 : Number(opts.widthPercent)
+  if (!Number.isFinite(widthPct) || widthPct < 1 || widthPct > 100) {
+    throw new Error('盖章宽度需在 1%–100% 之间')
+  }
+  const opacityRaw = Number(opts.opacity)
+  const opacity = Number.isFinite(opacityRaw) ? Math.min(1, Math.max(0.02, opacityRaw)) : 1
+  const angle = Number(opts.angle) || 0
+  if (!Number.isFinite(angle) || angle < -180 || angle > 180) {
+    throw new Error('盖章角度需在 -180°–180° 之间')
+  }
+  const marginRaw = Number(opts.margin)
+  const margin = Number.isFinite(marginRaw) ? marginRaw : 24
+  if (margin < 0 || margin > 200) throw new Error('盖章边距需在 0–200pt 之间')
+
+  for (const index of pages) {
+    const page = doc.getPage(index)
+    const box = page.getCropBox()
+    const pageW = box.width
+    const pageH = box.height
+    const rotation = normalizePageRotation(page.getRotation().angle)
+    const visualW = rotation === 90 || rotation === 270 ? pageH : pageW
+    const visualH = rotation === 90 || rotation === 270 ? pageW : pageH
+    const availW = visualW - 2 * margin
+    const availH = visualH - 2 * margin
+    if (availW < 4 || availH < 4) throw new Error('边距过大,盖章区域不足')
+
+    let width = (visualW * widthPct) / 100
+    let height = (width * image.height) / image.width
+    let bounds = rotatedBounds(angle, width, height)
+    if (bounds.bboxW > availW || bounds.bboxH > availH) {
+      const scale = Math.min(availW / bounds.bboxW, availH / bounds.bboxH)
+      width *= scale
+      height *= scale
+      bounds = rotatedBounds(angle, width, height)
+    }
+    const { x: vx, y: vy } = alignBox(bounds.bboxW, bounds.bboxH, visualW, visualH, pos, margin)
+    const center = visualToPagePoint(rotation, vx + bounds.bboxW / 2, vy + bounds.bboxH / 2, pageW, pageH)
+    const drawAngle = angle + rotation
+    const pb = rotatedBounds(drawAngle, width, height)
+    const placed = placeRotatedBox(drawAngle, width, height, center.x - pb.bboxW / 2, center.y - pb.bboxH / 2)
+    page.drawImage(image, {
+      x: box.x + placed.x,
+      y: box.y + placed.y,
+      width,
+      height,
+      opacity,
+      rotate: degrees(drawAngle)
+    })
+  }
+  return pages.length
 }
 
 export function cropPages(doc, margin) {

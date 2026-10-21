@@ -5,6 +5,7 @@ import PdfExtrasTool from './components/PdfExtrasTool.vue'
 import ImageTool from './components/ImageTool.vue'
 import TextTool from './components/TextTool.vue'
 import MdTool from './components/MdTool.vue'
+import FileTool from './components/FileTool.vue'
 import CalcTool from './components/CalcTool.vue'
 
 const tools = [
@@ -13,6 +14,7 @@ const tools = [
   { id: 'image', label: '图片工具', comp: ImageTool },
   { id: 'text', label: '文本工具', comp: TextTool },
   { id: 'md', label: 'Markdown', comp: MdTool },
+  { id: 'file', label: '文件工具', comp: FileTool },
   { id: 'calc', label: '小工具', comp: CalcTool }
 ]
 const active = ref('pdf')

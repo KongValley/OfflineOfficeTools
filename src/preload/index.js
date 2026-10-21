@@ -17,5 +17,9 @@ contextBridge.exposeInMainWorld('api', {
   processImageFile: (filePath, op) => ipcRenderer.invoke('image:processFile', filePath, op),
   previewImage: (filePath) => ipcRenderer.invoke('image:previewFile', filePath),
   embeddedJpeg: (data, opts) => ipcRenderer.invoke('image:embeddedJpeg', data, opts),
-  isOpaque: (data, opts) => ipcRenderer.invoke('image:isOpaque', data, opts)
+  isOpaque: (data, opts) => ipcRenderer.invoke('image:isOpaque', data, opts),
+  stitchImages: (paths, opts, targetPath) => ipcRenderer.invoke('image:stitch', paths, opts, targetPath),
+  renameBatch: (pairs) => ipcRenderer.invoke('file:renameBatch', pairs),
+  undoRename: () => ipcRenderer.invoke('file:undoRename'),
+  hashFile: (filePath) => ipcRenderer.invoke('file:hashes', filePath)
 })

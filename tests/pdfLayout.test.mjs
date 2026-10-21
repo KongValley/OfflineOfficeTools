@@ -8,10 +8,34 @@ function loadEsm(rel) {
   return import('data:text/javascript;base64,' + Buffer.from(src).toString('base64'))
 }
 
-const { MAX_PAGE_PIXELS, pageSize, fitRect, resampleLongEdge } =
-  await loadEsm('../src/renderer/src/utils/pdfLayout.js')
+const {
+  MAX_PAGE_PIXELS,
+  pageSize,
+  fitRect,
+  resampleLongEdge,
+  normalizePageRotation,
+  visualToPagePoint,
+  rotatedBounds,
+  placeRotatedBox,
+  fitRotatedInCell,
+  alignBox,
+  nupCells
+} = await loadEsm('../src/renderer/src/utils/pdfLayout.js')
 
 const near = (actual, expected, msg) => assert.ok(Math.abs(actual - expected) < 1e-9, `${msg}:${actual} ≠ ${expected}`)
+
+test('visualToPagePoint 抵消页面 /Rotate', () => {
+  assert.deepEqual(visualToPagePoint(0, 50, 60, 300, 400), { x: 50, y: 60 })
+  assert.deepEqual(visualToPagePoint(90, 50, 60, 300, 400), { x: 240, y: 50 })
+  assert.deepEqual(visualToPagePoint(180, 50, 60, 300, 400), { x: 250, y: 340 })
+  assert.deepEqual(visualToPagePoint(270, 50, 60, 300, 400), { x: 60, y: 350 })
+  // 可见页四角 → 未旋转页四角
+  assert.deepEqual(visualToPagePoint(90, 0, 0, 300, 400), { x: 300, y: 0 })
+  assert.deepEqual(visualToPagePoint(90, 400, 300, 300, 400), { x: 0, y: 400 })
+  assert.deepEqual(visualToPagePoint(180, 0, 0, 300, 400), { x: 300, y: 400 })
+  assert.deepEqual(visualToPagePoint(270, 0, 0, 300, 400), { x: 0, y: 400 })
+  assert.deepEqual(visualToPagePoint(45, 1, 2, 300, 400), { x: 1, y: 2 })
+})
 
 test('pageSize 固定页面与自动横竖', () => {
   assert.deepEqual(pageSize('a4', 1200, 800, 0), [841.89, 595.28])
@@ -64,6 +88,62 @@ test('resampleLongEdge 按 DPI 换算长边像素并受 30MP 预算收紧', () =
   assert.equal(portrait, 6515)
   assert.ok(Math.floor((4958 * portrait) / 7016) * portrait <= MAX_PAGE_PIXELS, '收紧后总像素不超预算')
   assert.equal(MAX_PAGE_PIXELS, 30000000)
+})
+
+test('旋转外接框与放置', () => {
+  assert.equal(normalizePageRotation(90), 90)
+  assert.equal(normalizePageRotation(-90), 270)
+  assert.equal(normalizePageRotation(450), 90)
+  assert.equal(normalizePageRotation(45), 0)
+
+  const b0 = rotatedBounds(0, 100, 50)
+  near(b0.bboxW, 100, '0° 宽')
+  near(b0.bboxH, 50, '0° 高')
+  near(b0.minX, 0, '0° 无偏移')
+  near(b0.minY, 0, '0° 无偏移')
+  const b90 = rotatedBounds(90, 100, 50)
+  near(b90.bboxW, 50, '90° 后宽高互换')
+  near(b90.bboxH, 100, '90° 后宽高互换')
+  near(b90.minX, -50, '90° 原点左移')
+  const b180 = rotatedBounds(180, 100, 50)
+  near(b180.minX, -100, '180° 原点左移')
+  near(b180.minY, -50, '180° 原点下移')
+  const b270 = rotatedBounds(270, 100, 50)
+  near(b270.minY, -100, '270° 原点下移')
+
+  const b30 = rotatedBounds(30, 100, 50)
+  near(b30.bboxW, 100 * Math.cos(Math.PI / 6) + 50 * 0.5, '任意角度外接框')
+  near(b30.bboxH, 50 + 50 * Math.cos(Math.PI / 6), '任意角度外接框')
+  near(b30.minX, -25, '任意角度原点偏移')
+
+  const p = placeRotatedBox(90, 100, 50, 10, 20)
+  near(p.x, 60, '外接框左下角对齐 boxX')
+  near(p.y, 20, '外接框左下角对齐 boxY')
+  assert.equal(p.rotate, 90)
+
+  const fit = fitRotatedInCell(0, 100, 50, 0, 0, 200, 200)
+  near(fit.width, 200, '等比放大')
+  near(fit.height, 100, '保持比例')
+  near(fit.x, 0, '水平居中')
+  near(fit.y, 50, '垂直居中')
+})
+
+test('9 宫格与拼版网格', () => {
+  assert.deepEqual(alignBox(100, 50, 300, 400, 'center', 20), { x: 100, y: 175 })
+  assert.deepEqual(alignBox(100, 50, 300, 400, 'top-left', 20), { x: 20, y: 330 })
+  assert.deepEqual(alignBox(100, 50, 300, 400, 'bottom-right', 20), { x: 180, y: 20 })
+  assert.throws(() => alignBox(100, 50, 300, 400, 'nope', 20), /未知位置/)
+  assert.throws(() => alignBox(100, 50, 100, 100, 'center', 60), /边距过大/)
+
+  const cells = nupCells(200, 300, 2, 3, 10, 5)
+  assert.equal(cells.length, 6)
+  near(cells[0].w, 87.5, '格子宽')
+  near(cells[0].h, 90, '格子高')
+  near(cells[0].x, 10, '第一格 x')
+  near(cells[0].y, 200, '第一行在最上方')
+  near(cells[5].x, 102.5, '最后一格 x')
+  near(cells[5].y, 10, '最后一行在最下方')
+  assert.throws(() => nupCells(100, 100, 2, 2, 0, 100), /间距过大/)
 })
 
 test('resampleLongEdge 收紧后按主进程的 round 缩放也不越界', () => {

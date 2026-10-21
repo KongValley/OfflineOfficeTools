@@ -235,6 +235,12 @@ textarea.editor { flex: 1 1 0; min-height: 220px; resize: none; }
 }
 .calc-out:empty { display: none; }
 
+/* 文件校验结果:哈希值很长,允许换行 */
+.hashval { display: flex; flex-direction: column; gap: 4px; margin: 8px 0; }
+.hashval > div { display: flex; align-items: baseline; gap: 10px; }
+.hashval b { flex: 0 0 58px; color: #41505e; font-size: 12px; }
+.hashval code { word-break: break-all; font-family: Consolas, "Courier New", monospace; font-size: 12px; }
+
 .todo-item {
   display: flex;
   align-items: center;
@@ -247,6 +253,32 @@ textarea.editor { flex: 1 1 0; min-height: 220px; resize: none; }
 }
 .todo-item .tt { flex: 1; min-width: 0; font-size: 13px; word-break: break-all; }
 .todo-item.done .tt { color: #98a2ae; text-decoration: line-through; }
+
+/* ---------- 批量重命名预览 ---------- */
+.rename-wrap {
+  max-height: clamp(180px, 40vh, 420px);
+  margin-bottom: 10px;
+  overflow: auto;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+}
+.rename-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.rename-table th, .rename-table td {
+  padding: 6px 9px;
+  border-bottom: 1px solid var(--line-soft);
+  text-align: left;
+  vertical-align: top;
+  word-break: break-all;
+}
+.rename-table th {
+  position: sticky;
+  top: 0;
+  background: var(--surface-soft);
+  color: var(--muted);
+  font-weight: 600;
+}
+.rename-table tr.same td { color: #98a2ae; }
+.rename-table tr.bad td { background: #fff2ee; color: #a2341f; }
 
 /* ---------- PDF 缩略图 ---------- */
 .thumbbox { margin-bottom: 10px; }

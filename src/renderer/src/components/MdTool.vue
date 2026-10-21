@@ -2,8 +2,13 @@
 import { ref, computed, watch } from 'vue'
 import MarkdownIt from 'markdown-it'
 import { inlineLocalImages } from '../utils/markdownImages.js'
+import { assignHeadingIds, insertOrUpdateToc, stripFrontMatter } from '../utils/mdToc.js'
 
 const md = new MarkdownIt({ html: false, linkify: true, breaks: true })
+// 给标题加 id,与 TOC 使用同一套 slug;预览/HTML/PDF 三处锚点一致
+md.core.ruler.push('heading_ids', (state) => {
+  assignHeadingIds(state.tokens)
+})
 const MD_FILTERS = [{ name: 'Markdown 文件', extensions: ['md', 'markdown'] }]
 const HTML_FILTERS = [{ name: 'HTML 文件', extensions: ['html'] }]
 const PDF_FILTERS = [{ name: 'PDF 文件', extensions: ['pdf'] }]
@@ -11,6 +16,7 @@ const PDF_FILTERS = [{ name: 'PDF 文件', extensions: ['pdf'] }]
 const source = ref('# 标题\n\n这是一段 **粗体** 文字。\n\n- 列表项一\n- 列表项二\n')
 const filePath = ref('')
 const preview = ref('')
+const previewEl = ref(null)
 const baseDir = computed(() => (filePath.value ? filePath.value.replace(/[\\/][^\\/]*$/, '') : ''))
 
 let previewTimer = null
@@ -23,7 +29,7 @@ watch([source, filePath], () => {
 
 async function renderPreview() {
   const token = ++renderToken
-  const inlined = await inlineLocalImages(md.render(source.value), baseDir.value)
+  const inlined = await inlineLocalImages(md.render(stripFrontMatter(source.value)), baseDir.value)
   if (token === renderToken) preview.value = inlined
 }
 
@@ -56,8 +62,9 @@ const baseName = () =>
   filePath.value ? filePath.value.split(/[\\/]/).pop().replace(/\.md(on)?$/i, '') : '导出'
 
 async function buildHtml() {
-  const body = await inlineLocalImages(md.render(source.value), baseDir.value)
-  const title = md.render(source.value).match(/<h1[^>]*>([\s\S]*?)<\/h1>/)?.[1] || 'Markdown 导出'
+  const bodySource = stripFrontMatter(source.value)
+  const body = await inlineLocalImages(md.render(bodySource), baseDir.value)
+  const title = md.render(bodySource).match(/<h1[^>]*>([\s\S]*?)<\/h1>/)?.[1] || 'Markdown 导出'
   return `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -86,6 +93,29 @@ ${body}
 `
 }
 
+function insertToc() {
+  try {
+    source.value = insertOrUpdateToc(source.value)
+  } catch (e) {
+    alert(e.message)
+  }
+}
+
+// 预览里的 #锚点留在预览容器内滚动,不让 Electron 窗口导航
+function onPreviewClick(e) {
+  const anchor = e.target && e.target.closest ? e.target.closest('a[href^="#"]') : null
+  if (!anchor) return
+  e.preventDefault()
+  const raw = (anchor.getAttribute('href') || '').slice(1)
+  if (!raw) return
+  let id = raw
+  try { id = decodeURIComponent(raw) } catch {}
+  const node = previewEl.value
+    ? [...previewEl.value.querySelectorAll('[id]')].find((el) => el.id === id)
+    : null
+  if (node) node.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
 async function saveHtml() {
   const target = await window.api.saveFile({ defaultName: `${baseName()}.html`, filters: HTML_FILTERS })
   if (!target) return
@@ -109,13 +139,14 @@ async function savePdf() {
   <div class="tool fill" @dragover.prevent @drop.prevent="onDrop">
     <div class="row">
       <button class="act primary" @click="open">打开 .md 文件</button>
+      <button class="act" @click="insertToc">插入/更新目录</button>
       <button class="act" @click="saveHtml">导出为 HTML</button>
       <button class="act" @click="savePdf">导出为 PDF</button>
       <span class="hint">左侧编辑,右侧实时预览;相对路径图片会自动内联进预览与导出文件</span>
     </div>
     <div class="md">
       <textarea v-model="source" spellcheck="false" placeholder="在此输入 Markdown"></textarea>
-      <div class="preview" v-html="preview"></div>
+      <div ref="previewEl" class="preview" v-html="preview" @click="onPreviewClick"></div>
     </div>
   </div>
 </template>
